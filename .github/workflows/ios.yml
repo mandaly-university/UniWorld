@@ -1,0 +1,27 @@
+name: iOS CI/CD
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  build:
+    runs-on: macos-latest
+
+    steps:
+    - uses: actions/checkout@v2
+    
+    - name: Select Xcode
+      run: sudo xcode-select -switch /Applications/Xcode.app
+      
+    - name: Build
+      run: |
+        cd ios
+        xcodebuild -scheme YadanabonApp -configuration Release -sdk iphonesimulator | xcpretty
+        
+    - name: Run Tests
+      run: |
+        cd ios
+        xcodebuild test -scheme YadanabonApp -destination 'platform=iOS Simulator,name=iPhone 14,OS=latest' | xcpretty 

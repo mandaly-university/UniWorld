@@ -1,0 +1,51 @@
+name: Build iOS IPA
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [ main ]
+
+jobs:
+  build:
+    runs-on: macos-latest
+
+    steps:
+      - uses: actions/checkout@v3
+
+      - name: Set up Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.19.0'
+          channel: 'stable'
+
+      - name: Install dependencies
+        run: flutter pub get
+
+      - name: Set up Ruby for Fastlane
+        uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: 3.1
+
+      - name: Install Fastlane
+        run: gem install fastlane
+
+      - name: Decode certificate and provisioning profile
+        run: |
+          echo "${{ secrets.CERTIFICATE_P12 }}" | base64 --decode > certificate.p12
+          echo "${{ secrets.PROVISIONING_PROFILE }}" | base64 --decode > profile.mobileprovision
+
+      - name: Build IPA with Fastlane
+        env:
+          CERTIFICATE_PASSWORD: ${{ secrets.CERTIFICATE_PASSWORD }}
+        run: |
+          fastlane run create_keychain name:"build.keychain" password:"password" default_keychain:true unlock:true timeout:3600
+          fastlane run import_certificate keychain_name:"build.keychain" certificate_path:"certificate.p12" certificate_password:"$CERTIFICATE_PASSWORD"
+          mkdir -p ~/Library/MobileDevice/Provisioning\ Profiles
+          cp profile.mobileprovision ~/Library/MobileDevice/Provisioning\ Profiles/
+          flutter build ipa --release --export-options-plist=ios/Runner/ExportOptions.plist
+
+      - name: Upload IPA
+        uses: actions/upload-artifact@v3
+        with:
+          name: UniWorld-ipa
+          path: build/ios/ipa/*.ipa 
